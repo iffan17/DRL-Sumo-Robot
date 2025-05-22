@@ -84,8 +84,8 @@ class SumoEnv(gym.Env):
     def step(self, action):
         speeds = np.clip(action, -1.0, 1.0) * 10.0
         for bot, (l, r) in zip((self.botA, self.botB), [(speeds[0], speeds[1]), (speeds[2], speeds[3])]):
-            p.setJointMotorControl2(bot, 0, p.VELOCITY_CONTROL, targetVelocity=l, force=2)
-            p.setJointMotorControl2(bot, 1, p.VELOCITY_CONTROL, targetVelocity=r, force=2)
+            p.setJointMotorControl2(bot, 0, p.VELOCITY_CONTROL, targetVelocity=l, force=10)
+            p.setJointMotorControl2(bot, 1, p.VELOCITY_CONTROL, targetVelocity=r, force=10)
 
         p.stepSimulation()
         self.step_count += 1
@@ -117,6 +117,8 @@ class SumoEnv(gym.Env):
             return (1.0 if outB else -1.0), True
         if outA and outB:
             return 0.0, True
+        
+        
         # fall detection
         _,ornA = p.getBasePositionAndOrientation(self.botA)
         _,ornB = p.getBasePositionAndOrientation(self.botB)
