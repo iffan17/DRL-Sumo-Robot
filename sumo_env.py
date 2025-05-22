@@ -112,12 +112,15 @@ class SumoEnv(gym.Env):
         outA = np.linalg.norm(posA[:2])>self.ring_radius
         outB = np.linalg.norm(posB[:2])>self.ring_radius
 
-        # Both out = 0 , out = -1, knockout = 1
-        if outA != outB:
-            return (1.0 if outB else -1.0), True
-        if outA and outB:
-            return 0.0, True
-        
+        # Win / Loss
+        if outA and not outB:
+            knockout_reward = -1.0  # Agent A loses
+        elif outB and not outA:
+            knockout_reward = +1.0  # Agent A wins
+        elif outA and outB:
+            knockout_reward = -0.2   # draw / both fall
+        else:
+            knockout_reward = 0
         
         # fall detection
         _,ornA = p.getBasePositionAndOrientation(self.botA)
@@ -127,13 +130,22 @@ class SumoEnv(gym.Env):
 
         # -1 if fall else +1
         if abs(rA)>self.fall_threshold or abs(pA)>self.fall_threshold:
-            return -1.0, True
+            flip_reward = -1.0
         if abs(rB)>self.fall_threshold or abs(pB)>self.fall_threshold:
-            return +1.0, True
+            flip_reward = +1.0
+        else:
+            flip_reward = 0
         
         # shaping reward by distant
         dist = np.linalg.norm(np.array(posB[:2])-np.array(posA[:2]))
-        return (1-dist/self.ring_radius)*0.01 + (np.linalg.norm(posB[:2])/self.ring_radius)*0.01 - 0.001, False
+        dist_reward = (1-dist/self.ring_radius)*0.01 + (np.linalg.norm(posB[:2])/self.ring_radius)*0.01 - 0.001, False
+        
+        total_step_reward = 1 * knockout_reward
+        + 1* flip_reward
+        + 1* dist_reward
+
+        reset = (knockout_reward != 0 ) #or flip_reward != 0
+        return total_step_reward, reset
 
     def _get_obs(self):
         posA,ornA = p.getBasePositionAndOrientation(self.botA)  # obs - p_a
@@ -169,8 +181,8 @@ class SumoEnv(gym.Env):
         target = pos + forward*0.10
         view = p.computeViewMatrix(eye.tolist(), target.tolist(), up.tolist())
         proj = p.computeProjectionMatrixFOV(60, 1.0, 0.01, 2.0)
-        _, _, rgb, _, _ = p.getCameraImage(128, 128, view, proj, renderer=p.ER_BULLET_HARDWARE_OPENGL)
-        rgb_np = np.reshape(rgb, (128, 128, 4))[:, :, :3].astype(np.uint8)
+        _, _, rgb, _, _ = p.getCameraImage(512, 512, view, proj, renderer=p.ER_BULLET_HARDWARE_OPENGL)
+        rgb_np = np.reshape(rgb, (512, 512, 4))[:, :, :3].astype(np.uint8)
         cv2.imshow(label, rgb_np)
         return rgb_np
 
