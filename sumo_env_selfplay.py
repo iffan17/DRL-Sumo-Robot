@@ -18,7 +18,7 @@ class SumoEnvSelfPlay(gym.Env):
         self.preview_rate = 2
         self.ring_radius = 1.0
         self.max_steps = 1500
-        self.fall_threshold = 1.0
+        self.fall_threshold = 1.5
         self.episode_return = 0.0
 
         self.opponent_policy = opponent_policy  # function or callable
@@ -90,10 +90,12 @@ class SumoEnvSelfPlay(gym.Env):
         return obs, reward, done, truncated, {}
 
     def _get_opponent_action(self):
-        if callable(self.opponent_policy):
-            obs = self._get_obs()
-            return self.opponent_policy(obs)
-        return np.random.uniform(-1, 1, size=(2,))
+        return self.opponent_policy(self._get_obs())
+
+        # if callable(self.opponent_policy):
+        #     obs = self._get_obs()
+        #     return self.opponent_policy(obs)
+        # return np.random.uniform(-1, 1, size=(2,))
 
     def _compute_reward(self):
         posA, _ = p.getBasePositionAndOrientation(self.botA)
@@ -110,12 +112,23 @@ class SumoEnvSelfPlay(gym.Env):
         else:
             rewardA = 0
 
-        _, ornA = p.getBasePositionAndOrientation(self.botA)
-        rA, pA, _ = p.getEulerFromQuaternion(ornA)
+        _,ornA = p.getBasePositionAndOrientation(self.botA)
+        _,ornB = p.getBasePositionAndOrientation(self.botB)
+        rA,pA,_ = p.getEulerFromQuaternion(ornA)
+        rB,pB,_ = p.getEulerFromQuaternion(ornB)
         if abs(rA) > self.fall_threshold or abs(pA) > self.fall_threshold:
             rewardA += -1.0
+        elif abs(rB) > self.fall_threshold or abs(pB) > self.fall_threshold:
+            rewardA += 1
 
-        return rewardA, (rewardA != 0)
+        # shaping reward by distant
+        dist = np.linalg.norm(np.array(posB[:2])-np.array(posA[:2]))
+        dist_reward = (1-dist/self.ring_radius)*0.01 + (np.linalg.norm(posB[:2])/self.ring_radius)*0.01 - 0.001, False
+        
+        total_step_reward = 1 * rewardA
+        + 1* dist_reward
+
+        return total_step_reward, (rewardA != 0)
 
     def _get_obs(self):
         posA, ornA = p.getBasePositionAndOrientation(self.botA)

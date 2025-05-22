@@ -187,6 +187,8 @@ class SumoEnv(gym.Env):
         return rgb_np
 
 
+
+    
     def render(self): pass
 
     def close(self): p.disconnect(self.physics_client)
