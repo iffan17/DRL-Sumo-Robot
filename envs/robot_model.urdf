@@ -1,0 +1,147 @@
+<robot name="sumo_bot">
+
+  <!-- Main Body/Base -->
+  <link name="base_link">
+    <inertial>
+      <mass value="1"/>
+      <inertia ixx="0.03" iyy="0.03" izz="0.05"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0.07" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.18 0.16 0.06"/>
+      </geometry>
+      <material name="gray">
+        <color rgba="0.65 0.65 0.65 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.07" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.18 0.16 0.06"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- Left Wheel -->
+  <link name="left_wheel">
+    <inertial>
+      <mass value="0.2"/>
+      <inertia ixx="5e-4" iyy="5e-4" izz="1e-3"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry>
+        <cylinder length="0.03" radius="0.05"/>
+      </geometry>
+      <material name="black">
+        <color rgba="0.1 0.1 0.1 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry>
+        <cylinder length="0.03" radius="0.05"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="left_wheel_joint" type="continuous">
+    <parent link="base_link"/>
+    <origin xyz="0 0.09 0.05" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <child link="left_wheel"/>
+  </joint>
+
+  <!-- Right Wheel -->
+  <link name="right_wheel">
+    <inertial>
+      <mass value="0.2"/>
+      <inertia ixx="5e-4" iyy="5e-4" izz="1e-3"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry>
+        <cylinder length="0.03" radius="0.05"/>
+      </geometry>
+      <material name="black">
+        <color rgba="0.1 0.1 0.1 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry>
+        <cylinder length="0.03" radius="0.05"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="right_wheel_joint" type="continuous">
+    <parent link="base_link"/>
+    <origin xyz="0 -0.09 0.05" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <child link="right_wheel"/>
+  </joint>
+
+  <!-- Sumo Front Plate (ลาดเหมือนในรูป) -->
+  <link name="head">
+    <inertial>
+      <mass value="0.15"/>
+      <inertia ixx="1e-3" iyy="2e-3" izz="1e-3"/>
+    </inertial>
+    <visual>
+      <!-- ปรับขนาด 0.18m x 0.18m x 0.015m = 18x18x1.5cm (บางกว่าฐานนิดนึง) -->
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.18 0.18 0.015"/>
+      </geometry>
+      <material name="aluminum">
+        <color rgba="0.82 0.82 0.82 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.18 0.18 0.015"/>
+      </geometry>
+    </collision>
+  </link>
+ <joint name="head_joint" type="fixed">
+   <parent link="base_link"/>
+   <!-- เดิม: <origin xyz="0.12 0 0.01" rpy="0 -0.7 0"/> -->
+   <!-- ให้หมุนลงหน้า, ปกติ X คือหน้าหุ่น, หมุน pitch เป็นลบคือก้มลง -->
+   <origin xyz="0.12 0 0.12" rpy="0 -0.7 -3.1416"/>
+
+   <child link="head"/>
+ </joint>
+
+
+  <!-- (Optional) Caster wheel or back skid for balance -->
+  <link name="back_skid">
+    <inertial>
+      <mass value="0.02"/>
+      <inertia ixx="1e-5" iyy="1e-5" izz="1e-5"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <sphere radius="0.01"/>
+      </geometry>
+      <material name="gray">
+        <color rgba="0.4 0.4 0.4 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <sphere radius="0.01"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="back_skid_joint" type="fixed">
+    <parent link="base_link"/>
+    <!-- ด้านหลัง x=-0.08 (หลัง base), z=0.01 (เกือบติดพื้น) -->
+    <origin xyz="-0.08 0 0.05" rpy="0 0 0"/>
+    <child link="back_skid"/>
+  </joint>
+
+</robot>
+

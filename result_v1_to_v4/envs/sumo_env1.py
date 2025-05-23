@@ -8,8 +8,6 @@ from math import sqrt, pi
 # at top of your script
 import cv2
 
-# version note :  right now the env is resetting everytime an agent pitch/row too high
-# it's helping prevent agent glitch and flying out but might reduce possible move for agent
 class SumoEnv(gym.Env):
     """
     2-agent Sumo environment with head-mounted RGB camera previews at 30 FPS.
@@ -25,7 +23,6 @@ class SumoEnv(gym.Env):
         self.ring_radius = 1.0
         self.max_steps = 1500
         self.fall_threshold = 1.0  # radians
-        self.episode_return = 0.0
 
         # connect
         if self.render:
@@ -52,8 +49,6 @@ class SumoEnv(gym.Env):
         p.resetSimulation()
         p.setGravity(0, 0, -9.8)
         p.setTimeStep(self.time_step)
-
-        self.episode_return = 0.0
 
         # ground + ring
         p.loadURDF("plane.urdf")
@@ -84,13 +79,13 @@ class SumoEnv(gym.Env):
     def step(self, action):
         speeds = np.clip(action, -1.0, 1.0) * 10.0
         for bot, (l, r) in zip((self.botA, self.botB), [(speeds[0], speeds[1]), (speeds[2], speeds[3])]):
-            p.setJointMotorControl2(bot, 0, p.VELOCITY_CONTROL, targetVelocity=l, force=10)
-            p.setJointMotorControl2(bot, 1, p.VELOCITY_CONTROL, targetVelocity=r, force=10)
+            p.setJointMotorControl2(bot, 0, p.VELOCITY_CONTROL, targetVelocity=l, force=2)
+            p.setJointMotorControl2(bot, 1, p.VELOCITY_CONTROL, targetVelocity=r, force=2)
 
         p.stepSimulation()
         self.step_count += 1
 
-        # Only run internal preview if not running from external test
+        #  Only run internal preview if not running from external test
         preview = getattr(self, "_external_preview", False) is False and \
                   self.render and self.step_count % self.preview_rate == 0
 
@@ -101,62 +96,40 @@ class SumoEnv(gym.Env):
         obs = self._get_obs()
         reward, done = self._compute_reward()
         truncated = (self.step_count >= self.max_steps)
-        self.episode_return += reward
-
         return obs, reward, done, truncated, {}
 
     def _compute_reward(self):
-        
         posA,_ = p.getBasePositionAndOrientation(self.botA)
         posB,_ = p.getBasePositionAndOrientation(self.botB)
         outA = np.linalg.norm(posA[:2])>self.ring_radius
         outB = np.linalg.norm(posB[:2])>self.ring_radius
-
-        # Win / Loss
-        if outA and not outB:
-            knockout_reward = -1.0  # Agent A loses
-        elif outB and not outA:
-            knockout_reward = +1.0  # Agent A wins
-        elif outA and outB:
-            knockout_reward = -0.2   # draw / both fall
-        else:
-            knockout_reward = 0
-        
+        if outA != outB:
+            return (1.0 if outB else -1.0), True
+        if outA and outB:
+            return 0.0, True
         # fall detection
         _,ornA = p.getBasePositionAndOrientation(self.botA)
         _,ornB = p.getBasePositionAndOrientation(self.botB)
         rA,pA,_ = p.getEulerFromQuaternion(ornA)
         rB,pB,_ = p.getEulerFromQuaternion(ornB)
-
-        # -1 if fall else +1
         if abs(rA)>self.fall_threshold or abs(pA)>self.fall_threshold:
-            flip_reward = -1.0
+            return -1.0, True
         if abs(rB)>self.fall_threshold or abs(pB)>self.fall_threshold:
-            flip_reward = +1.0
-        else:
-            flip_reward = 0
-        
-        # shaping reward by distant
+            return +1.0, True
+        # shaping
         dist = np.linalg.norm(np.array(posB[:2])-np.array(posA[:2]))
-        dist_reward = (1-dist/self.ring_radius)*0.01 + (np.linalg.norm(posB[:2])/self.ring_radius)*0.01 - 0.001, False
-        
-        total_step_reward = 1000 * knockout_reward
-        + 1* flip_reward
-        + 100* dist_reward
-
-        reset = (knockout_reward != 0 ) #or flip_reward != 0
-        return total_step_reward, reset
+        return (1-dist/self.ring_radius)*0.01 + (np.linalg.norm(posB[:2])/self.ring_radius)*0.01 - 0.001, False
 
     def _get_obs(self):
-        posA,ornA = p.getBasePositionAndOrientation(self.botA)  # obs - p_a
-        velA,_ = p.getBaseVelocity(self.botA)                   # obs - v_a
-        posB,ornB = p.getBasePositionAndOrientation(self.botB)  # obs - p_b
-        velB,_ = p.getBaseVelocity(self.botB)                   # obs - v_B
-        vec = np.array(posB[:2]) - np.array(posA[:2])               # (vector between agent)
-        dist = np.linalg.norm(vec)+1e-8                         # obs - distant between agent
-        bearing = np.arctan2(vec[1], vec[0])                    # obs - ??? angle between agent 
-        rA,pA,_ = p.getEulerFromQuaternion(ornA)                # obs - row, pitch A
-        rB,pB,_ = p.getEulerFromQuaternion(ornB)                # obs - row, pitch B
+        posA,ornA = p.getBasePositionAndOrientation(self.botA)
+        velA,_ = p.getBaseVelocity(self.botA)
+        posB,ornB = p.getBasePositionAndOrientation(self.botB)
+        velB,_ = p.getBaseVelocity(self.botB)
+        vec = np.array(posB[:2]) - np.array(posA[:2])
+        dist = np.linalg.norm(vec)+1e-8
+        bearing = np.arctan2(vec[1], vec[0])
+        rA,pA,_ = p.getEulerFromQuaternion(ornA)
+        rB,pB,_ = p.getEulerFromQuaternion(ornB)
         return np.array([
             posA[0],posA[1], velA[0],velA[1],
             posB[0],posB[1], velB[0],velB[1],
@@ -181,14 +154,12 @@ class SumoEnv(gym.Env):
         target = pos + forward*0.10
         view = p.computeViewMatrix(eye.tolist(), target.tolist(), up.tolist())
         proj = p.computeProjectionMatrixFOV(60, 1.0, 0.01, 2.0)
-        _, _, rgb, _, _ = p.getCameraImage(512, 512, view, proj, renderer=p.ER_BULLET_HARDWARE_OPENGL)
-        rgb_np = np.reshape(rgb, (512, 512, 4))[:, :, :3].astype(np.uint8)
+        _, _, rgb, _, _ = p.getCameraImage(128, 128, view, proj, renderer=p.ER_BULLET_HARDWARE_OPENGL)
+        rgb_np = np.reshape(rgb, (128, 128, 4))[:, :, :3].astype(np.uint8)
         cv2.imshow(label, rgb_np)
         return rgb_np
 
 
-
-    
     def render(self): pass
 
     def close(self): p.disconnect(self.physics_client)

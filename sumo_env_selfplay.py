@@ -123,10 +123,13 @@ class SumoEnvSelfPlay(gym.Env):
 
         # shaping reward by distant
         dist = np.linalg.norm(np.array(posB[:2])-np.array(posA[:2]))
-        dist_reward = (1-dist/self.ring_radius)*0.01 + (np.linalg.norm(posB[:2])/self.ring_radius)*0.01 - 0.001, False
+        dist_reward = (1-dist/self.ring_radius)*0.01 *100  # closer opponent
+        + (np.linalg.norm(posB[:2])/self.ring_radius)*0.01 *1000 #
+        - 0.001
         
         total_step_reward = 1 * rewardA
-        + 1* dist_reward
+        - 1* dist_reward
+
 
         return total_step_reward, (rewardA != 0)
 
@@ -159,7 +162,7 @@ class SumoEnvSelfPlay(gym.Env):
         rot = p.getMatrixFromQuaternion(orn)
         forward = np.array([rot[0], rot[3], rot[6]])
         up      = np.array([rot[2], rot[5], rot[8]])
-        eye    = pos + up*0.02
+        eye    = pos + up*1
         target = pos + forward*0.10
         view = p.computeViewMatrix(eye.tolist(), target.tolist(), up.tolist())
         proj = p.computeProjectionMatrixFOV(60, 1.0, 0.01, 2.0)
